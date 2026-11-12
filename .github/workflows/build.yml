@@ -113,6 +113,7 @@ jobs:
           import android.graphics.Color
           import android.view.Gravity
           import android.widget.*
+          import android.content.Intent
 
           class MainActivity : Activity() {
               override fun onCreate(savedInstanceState: Bundle?) {
@@ -172,6 +173,23 @@ jobs:
                   layout.addView(status)
                   layout.addView(protocols)
                   layout.addView(button)
+                  val configButton = Button(this).apply {
+                  text = "CONFIGURATION"
+                  textSize = 16f
+                  setTextColor(Color.WHITE)
+                  setBackgroundColor(Color.rgb(35, 100, 180))
+
+                  setOnClickListener {
+                  startActivity(
+            Intent(
+                  this@MainActivity,
+                  SshConfigActivity::class.java
+                              )
+                          )
+                      }
+                  }
+
+                  layout.addView(configButton)
 
                   setContentView(layout)
               }
