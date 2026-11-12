@@ -73,9 +73,7 @@ class HttpProxyConnector {
             output.write(request.toByteArray(Charsets.UTF_8))
             output.flush()
 
-            val input = BufferedInputStream(
-                socket.getInputStream()
-            )
+            val input = socket.getInputStream()
 
             val response = StringBuilder()
 
