@@ -196,6 +196,23 @@ jobs:
                   }
 
                   layout.addView(configButton)
+                  val testButton = Button(this).apply {
+                  text = "TEST WEBSOCKET"
+                  textSize = 16f
+                  setTextColor(Color.WHITE)
+                  setBackgroundColor(Color.rgb(30, 140, 90))
+
+                  setOnClickListener {
+                  startActivity(
+            Intent(
+                  this@MainActivity,
+                  WebSocketTestActivity::class.java
+                              )
+                          )
+                      }
+                  }
+
+                  layout.addView(testButton)
 
                   setContentView(layout)
               }
