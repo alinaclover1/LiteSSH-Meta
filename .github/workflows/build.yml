@@ -1,0 +1,185 @@
+name: Build LiteSSH Meta
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Create Android Project
+        run: |
+          mkdir -p app/src/main/java/id/litessh/meta
+
+          cat > settings.gradle.kts <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "LiteSSH-Meta"
+          include(":app")
+          EOF
+
+          cat > build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application") version "8.6.1" apply false
+              id("org.jetbrains.kotlin.android") version "2.0.20" apply false
+          }
+          EOF
+
+          cat > app/build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+
+          android {
+              namespace = "id.litessh.meta"
+              compileSdk = 35
+
+              defaultConfig {
+                  applicationId = "id.litessh.meta"
+                  minSdk = 23
+                  targetSdk = 28
+                  versionCode = 1
+                  versionName = "0.1.0"
+              }
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <application
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar"
+                  android:label="LiteSSH Meta"
+                  android:allowBackup="false">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/id/litessh/meta/MainActivity.kt <<'EOF'
+          package id.litessh.meta
+
+          import android.app.Activity
+          import android.os.Bundle
+          import android.graphics.Color
+          import android.view.Gravity
+          import android.widget.*
+
+          class MainActivity : Activity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+
+                  val layout = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      gravity = Gravity.CENTER
+                      setPadding(28, 28, 28, 28)
+                      setBackgroundColor(Color.rgb(15, 20, 32))
+                  }
+
+                  val title = TextView(this).apply {
+                      text = "LiteSSH Meta"
+                      textSize = 30f
+                      setTextColor(Color.WHITE)
+                      gravity = Gravity.CENTER
+                  }
+
+                  val subtitle = TextView(this).apply {
+                      text = "Lightweight Multi Protocol VPN"
+                      textSize = 14f
+                      setTextColor(Color.LTGRAY)
+                      gravity = Gravity.CENTER
+                  }
+
+                  val status = TextView(this).apply {
+                      text = "STATUS: DISCONNECTED"
+                      textSize = 16f
+                      setTextColor(Color.YELLOW)
+                      gravity = Gravity.CENTER
+                      setPadding(0, 40, 0, 30)
+                  }
+
+                  val protocols = TextView(this).apply {
+                      text = """
+                          SSH WEBSOCKET
+                          SSH SNI / TLS
+                          SSH SLOWDNS
+                          VMESS
+                          VLESS
+                      """.trimIndent()
+                      textSize = 17f
+                      setTextColor(Color.WHITE)
+                      gravity = Gravity.CENTER
+                  }
+
+                  val button = Button(this).apply {
+                      text = "LITE SSH META"
+                      setOnClickListener {
+                          status.text = "ENGINE NOT INSTALLED YET"
+                      }
+                  }
+
+                  layout.addView(title)
+                  layout.addView(subtitle)
+                  layout.addView(status)
+                  layout.addView(protocols)
+                  layout.addView(button)
+
+                  setContentView(layout)
+              }
+          }
+          EOF
+
+      - name: Build APK
+        run: gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LiteSSH-Meta-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
