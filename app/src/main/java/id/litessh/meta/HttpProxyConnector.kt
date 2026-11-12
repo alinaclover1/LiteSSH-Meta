@@ -1,9 +1,12 @@
 package id.litessh.meta
 
 import java.net.Socket
+import java.net.InetSocketAddress
 import java.io.BufferedInputStream
-import java.io.OutputStream
 import java.io.IOException
+import java.security.MessageDigest
+import java.security.SecureRandom
+import java.util.Base64
 
 class HttpProxyConnector {
 
@@ -19,24 +22,55 @@ class HttpProxyConnector {
 
         try {
             socket.connect(
-                java.net.InetSocketAddress(proxyHost, proxyPort),
-                10000
+                InetSocketAddress(proxyHost, proxyPort),
+                15000
             )
 
             socket.soTimeout = 15000
 
-            val payload = payloadTemplate
+            val authority = targetHost
+                .substringBefore("@")
+                .trim()
+
+            val hostname = authority
+                .substringBeforeLast(":")
+                .takeIf {
+                    authority.substringAfterLast(":").toIntOrNull() != null
+                } ?: authority
+
+            val randomBytes = ByteArray(16)
+            SecureRandom().nextBytes(randomBytes)
+
+            val key = Base64.getEncoder()
+                .encodeToString(randomBytes)
+
+            var request = payloadTemplate
                 .replace("[crlf]", "\r\n")
-                .replace("[host_port]", "$targetHost:80")
-                .replace("[host]", targetHost)
+                .replace("[host_port]", authority)
+                .replace("[host]", hostname)
                 .replace("[ua]", userAgent)
 
-            val output: OutputStream = socket.getOutputStream()
+            request = request.trimEnd('\r', '\n')
 
-            output.write(
-                payload.toByteArray(Charsets.UTF_8)
-            )
+            if (!request.contains(
+                    Regex("(?im)^Sec-WebSocket-Key:")
+                )
+            ) {
+                request += "\r\nSec-WebSocket-Key: $key"
+            }
 
+            if (!request.contains(
+                    Regex("(?im)^Sec-WebSocket-Version:")
+                )
+            ) {
+                request += "\r\nSec-WebSocket-Version: 13"
+            }
+
+            request += "\r\n\r\n"
+
+            val output = socket.getOutputStream()
+
+            output.write(request.toByteArray(Charsets.UTF_8))
             output.flush()
 
             val input = BufferedInputStream(
@@ -44,37 +78,64 @@ class HttpProxyConnector {
             )
 
             val response = StringBuilder()
-            val buffer = ByteArray(1)
 
             while (response.length < 16384) {
 
-                val count = input.read(buffer)
+                val value = input.read()
 
-                if (count == -1) {
+                if (value == -1) {
                     throw IOException("Proxy closed connection")
                 }
 
-                response.append(
-                    String(buffer, 0, count, Charsets.ISO_8859_1)
-                )
+                response.append(value.toChar())
 
-                if (response.toString().endsWith("\r\n\r\n")) {
+                if (response.endsWith("\r\n\r\n")) {
                     break
                 }
             }
 
-            val statusLine = response.toString()
+            val responseText = response.toString()
+
+            val statusLine = responseText
                 .substringBefore("\r\n")
 
             if (!statusLine.contains(" 101 ")) {
                 throw IOException(
-                    "WebSocket handshake rejected: $statusLine"
+                    "WebSocket rejected: $statusLine"
+                )
+            }
+
+            val expectedAccept = Base64.getEncoder()
+                .encodeToString(
+                    MessageDigest.getInstance("SHA-1").digest(
+                        (
+                            key +
+                            "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+                        ).toByteArray(Charsets.UTF_8)
+                    )
+                )
+
+            val actualAccept = responseText
+                .lineSequence()
+                .firstOrNull {
+                    it.startsWith(
+                        "Sec-WebSocket-Accept:",
+                        ignoreCase = true
+                    )
+                }
+                ?.substringAfter(":")
+                ?.trim()
+
+            if (actualAccept != expectedAccept) {
+                throw IOException(
+                    "Invalid WebSocket handshake"
                 )
             }
 
             return socket
 
         } catch (e: Exception) {
+
             try {
                 socket.close()
             } catch (_: Exception) {
