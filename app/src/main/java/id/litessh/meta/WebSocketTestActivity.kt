@@ -71,7 +71,7 @@ class WebSocketTestActivity : Activity() {
             var socket: Socket? = null
 
             try {
-                socket = HttpProxyConnector.connect(
+                socket = HttpProxyConnector().connect(
                     proxyHost,
                     proxyPort,
                     target,
