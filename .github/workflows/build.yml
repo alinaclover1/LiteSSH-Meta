@@ -91,6 +91,9 @@ jobs:
                   android:label="LiteSSH Meta"
                   android:allowBackup="false">
                   <activity
+                      android:name=".SshConfigActivity"
+                      android:exported="false" />
+                  <activity
                       android:name=".MainActivity"
                       android:exported="true">
                       <intent-filter>
