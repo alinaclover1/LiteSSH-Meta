@@ -29,7 +29,7 @@ class SshConfigActivity : Activity() {
                 this.hint = hint
                 setTextColor(Color.WHITE)
                 setHintTextColor(Color.GRAY)
-                singleLine = true
+                setSingleLine(true)
             }
             layout.addView(input)
             return input
